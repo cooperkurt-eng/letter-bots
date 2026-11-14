@@ -286,7 +286,7 @@ h1.long{font-size:clamp(36px,7vw,80px)}
       </ul>
     </div>
     <button id="resetBtn" class="reset-btn">Reset all progress</button>
-    <p class="muted" style="margin:0; font-size:13px">Version 10 · Nov 14, 2026</p>
+    <p class="muted" style="margin:0; font-size:13px">Version 11 · Nov 14, 2026</p>
   </div>
 </section>
 
@@ -518,7 +518,8 @@ function renderHome(){
 let G = null, timer = 0;
 function startRound(){
   audio();
-  G = {q:0, target:null, last:null, line:'', firstTry:true, misses:0, locked:false};
+  /* Name is spoken 3 times per mission: start, one random middle question (nameQ), end. */
+  G = {q:0, target:null, last:null, line:'', firstTry:true, misses:0, locked:false, nameQ: 3 + Math.floor(Math.random() * 4)};
   const m = $('#meter'); m.innerHTML = '';
   for(let i=0;i<QUESTIONS;i++){ const c = document.createElement('div'); c.className = 'cell'; m.appendChild(c); }
   show('play');
@@ -560,7 +561,7 @@ function nextQ(first){
     box.appendChild(b);
   });
   const ask = $('#ask'); ask.textContent = '?'; ask.classList.remove('reveal');
-  G.line = rand([S.name ? `${S.name}, find the letter ${N(t)}!` : `Find the letter ${N(t)}!`, `Where is the letter ${N(t)}?`, `Find the letter ${N(t)}!`, `Tap the letter ${N(t)}!`]);
+  G.line = (S.name && G.q === G.nameQ) ? `${S.name}, find ${N(t)}!` : rand([`Find ${N(t)}!`, `Where's ${N(t)}?`, `Tap ${N(t)}!`]);
   if(first) say(`Let's go${nm(', ')}! ${G.line}`); else timer = setTimeout(() => say(G.line), 350);
 }
 function record(L, ok){
@@ -581,7 +582,7 @@ function onTap(btn, L, e){
     const ask = $('#ask'); ask.textContent = L; ask.classList.add('reveal');
     burst(x, y, ['#ffb627','#5fe3ff','#ffffff','#4ade80']);
     sfx.power();
-    const fb = (rand([`Yes! The letter ${N(L)}!`, `Power up! That's the letter ${N(L)}!`, `Awesome${nm(', ')}! The letter ${N(L)}!`, `You got it! The letter ${N(L)}!`]));
+    const fb = rand([`Yes! ${N(L)}!`, `Right! ${N(L)}!`, `${N(L)}! Nice!`]);
     const cell = $('#meter').children[G.q]; if(cell) cell.classList.add('on');
     G.last = L; G.q++;
     const t0 = Date.now();
@@ -591,7 +592,7 @@ function onTap(btn, L, e){
     G.firstTry = false; G.misses++;
     btn.classList.remove('wrong'); void btn.offsetWidth; btn.classList.add('wrong');
     sfx.bonk();
-    say(`That's the letter ${N(L)}. Find the letter ${N(G.target)}!`);
+    say(`That's ${N(L)}. Find ${N(G.target)}!`);
     if(G.misses >= 2){ const c = [...$('#bots').children].find(b => b.dataset.l === G.target); if(c) c.classList.add('hint'); }
   }
 }
@@ -615,9 +616,9 @@ function endRound(){
     burst(w*.25, h*.35, ['#ffb627','#5fe3ff','#e8443a','#4ade80'], 50);
     burst(w*.75, h*.35, ['#ffb627','#5fe3ff','#c94fd9','#ffffff'], 50);
   }, 250);
-  let line = `Mission complete! Great job${nm(', ')}!`;
-  if(newBot) line += ` You unlocked ${newBot.name.toLowerCase()}!`;
-  if(added) line += ` And a new letter joins the team: the letter ${N(added)}!`;
+  let line = `Great job${nm(', ')}!`;
+  if(newBot) line += ` New bot: ${newBot.name.toLowerCase()}!`;
+  if(added) line += ` New letter: ${N(added)}!`;
   say(line);
 }
 
@@ -683,16 +684,16 @@ $('#voiceSel').addEventListener('change', e => {
   audio(); stopAll();
   S.voiceName = e.target.value || '';
   save(); pickVoice(); renderVoiceSel();
-  say(`Hi${nm(' ')}! Find the letter ${N('G')}!`);
+  say(`Hi${nm(' ')}! Find ${N('G')}!`);
 });
 $('#nameHear').addEventListener('click', () => {
   audio();
   const n = cleanName($('#nameInput').value);
-  say(n ? `${n}, find the letter ${N('A')}!` : `Find the letter ${N('A')}!`);
+  say(n ? `${n}, find ${N('A')}!` : `Find ${N('A')}!`);
 });
 
 /* ---------- voice check ---------- */
-const speakLetter = L => say(`The letter ${N(L)}.`);
+const speakLetter = L => say(N(L));
 function renderVoice(){
   pickVoice();
   renderVoiceSel();
@@ -731,7 +732,7 @@ $('#playAll').addEventListener('click', () => {
     const t = document.querySelector(`.vtile[data-l="${L}"]`); if(t) t.scrollIntoView({block:'nearest', behavior: reduce ? 'auto' : 'smooth'});
     let done = false;
     const next = () => { if(done) return; done = true; setTimeout(step, 450); };
-    say(`The letter ${N(L)}.`, next);
+    say(N(L), next);
     setTimeout(next, 4500);
   };
   step();
