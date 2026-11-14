@@ -275,8 +275,10 @@ h1 .name{color:var(--hazard)}
 const $ = s => document.querySelector(s);
 const ORDER = ['C','A','D','E','N','S','T','M','P','O','B','R','I','L','H','F','G','K','U','W','J','Y','V','Z','X','Q'];
 /* Spoken spellings per letter. The first is the default; "Try another" in Voice Check cycles through the rest and saves the choice. */
-const ALT = {A:['A','ey','ae','ay'],B:['bee','B'],C:['see','C','sea'],D:['dee','D'],E:['ee','E','eee'],F:['eff','F'],G:['jee','G','gee'],H:['aitch','H','eych'],I:['eye','I'],J:['jay','J'],K:['kay','K'],L:['el','L','ell'],M:['em','M'],N:['en','N'],O:['oh','O'],P:['pee','P'],Q:['cue','Q','queue'],R:['are','R','arr','ahr'],S:['ess','S'],T:['tee','T','tea'],U:['yooo','yoooo','yoo','you','U'],V:['vee','V'],W:['double you','W','double-u'],X:['ex','X'],Y:['why','Y'],Z:['zee','Z']};
-const N = L => (S && S.say && S.say[L]) || (ALT[L] ? ALT[L][0] : L);
+const ALT = {A:['A','ey','ae','ay'],B:['bee','B'],C:['see','C','sea'],D:['dee','D'],E:['E','eee','ea'],F:['eff','F'],G:['G','gee','jee'],H:['aitch','H','eych'],I:['eye','I'],J:['jay','J'],K:['kay','K'],L:['el','L','ell'],M:['em','M'],N:['en','N'],O:['oh','O'],P:['pee','P'],Q:['cue','Q','queue'],R:['are','R','arr','ahr'],S:['ess','S'],T:['tee','T','tea'],U:['U','you','yoo'],V:['vee','V'],W:['double you','W','double-u'],X:['ex','X'],Y:['why','Y'],Z:['Z','zeee','zzee']};
+const raw = L => (S && S.say && S.say[L]) || (ALT[L] ? ALT[L][0] : L);
+/* Letter names are wrapped in «» so say() speaks them as their own, slower utterance. */
+const N = L => `«${raw(L)}»`;
 const BOTS = [
   {name:'VOLT',   c:'#e8443a', d:'#9c2a23', v:0},
   {name:'TORQUE', c:'#2f7de1', d:'#1c4f94', v:1},
@@ -301,6 +303,7 @@ function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} 
 let S = load();
 /* One-time: clear any saved R/U spellings so the new defaults take effect. */
 if(!S.sayV2){ if(S.say){ delete S.say.R; delete S.say.U; } S.sayV2 = 1; save(); }
+if(!S.sayV3){ if(S.say){ ['E','G','U','Z'].forEach(L => delete S.say[L]); } S.sayV3 = 1; save(); }
 const st = L => S.stats[L] || (S.stats[L] = {seen:0, right:0, box:0, conf:{}});
 function mastered(L){ const s = S.stats[L]; return !!s && s.box >= 4 && s.seen >= 4 && s.right / s.seen >= 0.75; }
 
@@ -373,14 +376,24 @@ function pickVoice(){
   }catch(e){}
 }
 try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
-function say(text){
+function utterances(text){
+  return text.split(/«(.*?)»/)
+    .map((p, i) => ({p: p.trim(), slow: i % 2 === 1}))
+    .filter(x => x.p && /[A-Za-z]/.test(x.p))
+    .map(x => {
+      const u = new SpeechSynthesisUtterance(x.p);
+      if(voice) u.voice = voice;
+      u.rate = x.slow ? .7 : .88; u.pitch = 1.1; u.volume = 1;
+      return u;
+    });
+}
+function say(text, onend){
   try{
     const s = window.speechSynthesis; if(!s) return;
     s.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    if(voice) u.voice = voice;
-    u.rate = .88; u.pitch = 1.1; u.volume = 1;
-    s.speak(u);
+    const us = utterances(text);
+    if(onend && us.length){ const last = us[us.length-1]; last.onend = onend; last.onerror = onend; }
+    us.forEach(u => s.speak(u));
   }catch(e){}
 }
 
@@ -576,11 +589,11 @@ function renderVoice(){
   const g = $('#vgrid'); g.innerHTML = '';
   ORDER.slice().sort().forEach(L => {
     const d = document.createElement('div'); d.className = 'vtile'; d.dataset.l = L;
-    d.innerHTML = `<button class="vplay" aria-label="Play ${L}"><b>${L}</b><small>"${N(L)}"</small></button><button class="vfix">Try another</button>`;
+    d.innerHTML = `<button class="vplay" aria-label="Play ${L}"><b>${L}</b><small>"${raw(L)}"</small></button><button class="vfix">Try another</button>`;
     d.querySelector('.vplay').addEventListener('click', () => { audio(); stopAll(); speakLetter(L); });
     d.querySelector('.vfix').addEventListener('click', () => {
       stopAll();
-      const opts = ALT[L], i = opts.indexOf(N(L)), nx = opts[(i + 1) % opts.length];
+      const opts = ALT[L], i = opts.indexOf(raw(L)), nx = opts[(i + 1) % opts.length];
       S.say = S.say || {};
       if(nx === opts[0]) delete S.say[L]; else S.say[L] = nx;
       save();
@@ -608,13 +621,8 @@ $('#playAll').addEventListener('click', () => {
     const t = document.querySelector(`.vtile[data-l="${L}"]`); if(t) t.scrollIntoView({block:'nearest', behavior: reduce ? 'auto' : 'smooth'});
     let done = false;
     const next = () => { if(done) return; done = true; setTimeout(step, 450); };
-    try{
-      const u = new SpeechSynthesisUtterance(`The letter ${N(L)}.`);
-      if(voice) u.voice = voice; u.rate = .88; u.pitch = 1.1;
-      u.onend = next; u.onerror = next;
-      s.speak(u);
-    }catch(e){}
-    setTimeout(next, 3000);
+    say(`The letter ${N(L)}.`, next);
+    setTimeout(next, 4500);
   };
   step();
 });
