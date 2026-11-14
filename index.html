@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Letter Bots</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Letter Bots">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#14233f">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-512.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Bungee&display=swap" rel="stylesheet">
+</head>
+<body>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); background:#0b162d}
+body{margin:0; font-size:14px}
+[hidden]{display:none!important}
+img{max-width:100%}
+
+/* Layout: one-screen robot hangar. Bots line up on a hazard-striped deck, each wearing a big letter plate. Single dark look on purpose. */
+:root{
+  --bay:#14233f; --bay-deep:#0b162d; --steel:#2a3d63; --steel-hi:#3a5285;
+  --plate:#f6f3ea; --ink:#1a1f2e; --hazard:#ffb627; --hazard-dk:#b97c0a;
+  --glow:#5fe3ff; --good:#4ade80; --text:#eef3ff; --muted:#9fb0d4;
+  --display:'Bungee','Arial Black',Impact,system-ui,sans-serif;
+  --letter:'Andika','Trebuchet MS','Helvetica Neue',Arial,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  position:relative; overflow:hidden; color:var(--text); font-family:var(--letter);
+  background:radial-gradient(120% 70% at 50% 0%, var(--steel) 0%, var(--bay) 55%, var(--bay-deep) 100%), var(--bay);
+  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit; color:inherit; cursor:pointer; -webkit-touch-callout:none}
+button:focus-visible{outline:4px solid var(--glow); outline-offset:4px}
+.screen{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+  padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px));
+  padding-block:14px 0;
+}
+.deck{
+  margin-top:auto; align-self:stretch; height:28px; flex:none;
+  margin-left:calc(-1 * max(16px, env(safe-area-inset-left,0px))); margin-right:calc(-1 * max(16px, env(safe-area-inset-right,0px)));
+  background:repeating-linear-gradient(-45deg, var(--hazard) 0 18px, var(--bay-deep) 18px 36px);
+  border-top:4px solid var(--bay-deep);
+}
+
+/* ---------- Home ---------- */
+.home-top{align-self:stretch; display:flex; justify-content:flex-end}
+.gear{position:relative; width:52px; height:52px; border-radius:50%; border:none; background:transparent; display:grid; place-items:center; color:var(--muted)}
+.gear svg{position:absolute; inset:0; width:100%; height:100%}
+.gear .ring{fill:none; stroke:var(--hazard); stroke-width:4; stroke-dasharray:145; stroke-dashoffset:145; transform:rotate(-90deg); transform-origin:center}
+.gear.holding .ring{transition:stroke-dashoffset 1.2s linear; stroke-dashoffset:0}
+.gear-hint{font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; align-self:flex-end; margin-top:-4px; opacity:.7}
+.home-main{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(14px,3vh,28px); text-align:center; min-height:0}
+.eyebrow{margin:0; font-family:var(--display); color:var(--glow); letter-spacing:.18em; font-size:clamp(13px,1.8vw,18px)}
+h1{margin:0; font-family:var(--display); font-weight:400; line-height:.95; font-size:clamp(44px,9.5vw,104px); text-wrap:balance; text-shadow:0 6px 0 var(--bay-deep)}
+h1 .name{color:var(--hazard)}
+.big-btn{
+  font-family:var(--display); font-size:clamp(22px,3.6vw,38px); letter-spacing:.04em;
+  background:var(--hazard); color:var(--ink); border:none; border-radius:20px;
+  padding:22px 54px; box-shadow:0 9px 0 var(--hazard-dk), 0 16px 30px rgba(0,0,0,.35);
+  transition:transform .08s, box-shadow .08s;
+}
+.big-btn:active{transform:translateY(7px); box-shadow:0 2px 0 var(--hazard-dk), 0 6px 14px rgba(0,0,0,.3)}
+.ghost-btn{font-family:var(--display); font-size:clamp(18px,2.6vw,26px); background:transparent; color:var(--text); border:3px solid var(--steel-hi); border-radius:18px; padding:16px 34px}
+.squad-label{margin:0; font-family:var(--display); font-size:14px; color:var(--muted); letter-spacing:.1em}
+.squad{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; max-width:900px}
+.mini{width:clamp(58px,8vw,84px); display:flex; flex-direction:column; align-items:center; gap:2px}
+.mini svg{width:100%; height:auto; display:block}
+.mini span{font-family:var(--display); font-size:11px; color:var(--muted)}
+.mini.locked svg{opacity:.18; filter:grayscale(1) brightness(.5)}
+
+/* ---------- Play ---------- */
+.hud{align-self:stretch; display:flex; align-items:center; gap:14px}
+.icon-btn{width:60px; height:60px; flex:none; border-radius:18px; border:none; background:var(--steel); display:grid; place-items:center; box-shadow:0 5px 0 var(--bay-deep)}
+.icon-btn:active{transform:translateY(4px); box-shadow:0 1px 0 var(--bay-deep)}
+.icon-btn svg{width:30px; height:30px}
+.icon-btn.say{background:var(--glow); color:var(--ink)}
+.meter{flex:1; display:grid; grid-template-columns:repeat(10,1fr); gap:6px; max-width:620px; margin:0 auto}
+.cell{height:22px; border-radius:6px; background:var(--bay-deep); border:2px solid var(--steel-hi); transition:background .3s, box-shadow .3s}
+.cell.on{background:var(--hazard); border-color:var(--hazard); box-shadow:0 0 14px var(--hazard)}
+.prompt{display:flex; align-items:center; gap:18px; margin-block:clamp(10px,3vh,30px) clamp(6px,2vh,20px); font-family:var(--display); font-size:clamp(22px,4vw,42px); letter-spacing:.03em}
+.ask{width:1.9em; height:1.9em; display:grid; place-items:center; border-radius:14px; background:var(--bay-deep); border:3px dashed var(--steel-hi); color:var(--muted); font-family:var(--letter); font-weight:700; font-size:1.25em}
+.replay{display:flex; align-items:center; gap:10px; border:none; border-radius:18px; background:var(--glow); color:var(--ink); padding:12px 20px; font-family:var(--display); font-size:clamp(15px,2vw,20px); box-shadow:0 6px 0 #2a9bb3; animation:nudge 2.4s ease-in-out infinite}
+.replay svg{width:clamp(30px,4vw,40px); height:clamp(30px,4vw,40px)}
+.replay:active{transform:translateY(5px); box-shadow:0 1px 0 #2a9bb3}
+@keyframes nudge{0%,80%,100%{transform:scale(1)} 88%{transform:scale(1.08)}}
+@media (max-width:600px){ .prompt{flex-wrap:wrap; justify-content:center} .replay span{display:none} }
+.ask.reveal{background:var(--plate); color:var(--ink); border:3px solid var(--good); animation:pop .35s ease-out}
+.bots{flex:1; min-height:0; align-self:stretch; display:flex; flex-wrap:wrap; justify-content:center; align-content:center; gap:clamp(10px,3vw,40px)}
+.bot{--w:min(24vw, 32vh, 230px); width:var(--w); background:none; border:none; padding:0; position:relative; animation:land .45s cubic-bezier(.2,1.4,.5,1) both}
+.bots.three .bot{--w:min(29vw, 38vh, 260px)}
+.bot svg{display:block; width:100%; height:auto; filter:drop-shadow(0 10px 0 rgba(0,0,0,.28))}
+.bot .bob{animation:bob 2.6s ease-in-out infinite}
+.bot:nth-child(2) .bob{animation-delay:-.7s} .bot:nth-child(3) .bob{animation-delay:-1.4s} .bot:nth-child(4) .bob{animation-delay:-2s}
+.bot:nth-child(2){animation-delay:.07s} .bot:nth-child(3){animation-delay:.14s} .bot:nth-child(4){animation-delay:.21s}
+.bot.correct{z-index:2}
+.bot.correct .bob{animation:jump .8s ease-out}
+.bot.correct svg{filter:drop-shadow(0 0 22px var(--glow)) drop-shadow(0 0 8px var(--glow))}
+.bot.wrong .bob{animation:wobble .5s ease-in-out}
+.bot.hint svg{animation:hintglow 1s ease-in-out infinite}
+.bots.done .bot:not(.correct){opacity:.3; transform:scale(.9); transition:opacity .3s, transform .3s}
+
+/* ---------- Win ---------- */
+.win-main{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(10px,2.4vh,22px); text-align:center; min-height:0}
+.win-main h2{margin:0; font-family:var(--display); font-weight:400; font-size:clamp(34px,7vw,76px); color:var(--hazard); text-shadow:0 5px 0 var(--bay-deep)}
+.new-bot{width:min(42vw,40vh,320px); animation:arrive 1s cubic-bezier(.2,1.3,.4,1) both}
+.new-bot svg{width:100%; height:auto; display:block; filter:drop-shadow(0 0 30px var(--glow))}
+.win-text{margin:0; font-family:var(--display); font-size:clamp(18px,3vw,30px); max-width:24ch; text-wrap:balance}
+.win-sub{margin:0; font-size:clamp(16px,2.2vw,22px); color:var(--muted)}
+.row{display:flex; flex-wrap:wrap; gap:18px; justify-content:center; align-items:center}
+
+/* ---------- Parent corner ---------- */
+.parent{display:block; overflow-y:auto; -webkit-overflow-scrolling:touch; user-select:text; -webkit-user-select:text; background:var(--bay-deep)}
+.p-wrap{max-width:780px; margin:0 auto; padding-block:8px 48px; display:flex; flex-direction:column; gap:22px}
+.p-head{display:flex; align-items:center; justify-content:space-between; gap:12px}
+.p-head h2{margin:0; font-family:var(--display); font-weight:400; font-size:26px}
+.done-btn{font-family:var(--display); background:var(--hazard); color:var(--ink); border:none; border-radius:12px; padding:10px 22px; font-size:16px}
+.p-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+.p-stat{background:var(--bay); border:1px solid var(--steel); border-radius:14px; padding:14px 16px; min-width:0}
+.p-stat b{display:block; font-family:var(--display); font-weight:400; font-size:30px; color:var(--hazard); font-variant-numeric:tabular-nums}
+.p-stat span{font-size:14px; color:var(--muted)}
+.p-sec h3{margin:0 0 8px; font-family:var(--display); font-weight:400; font-size:15px; letter-spacing:.08em; color:var(--glow)}
+.p-sec p{margin:0; font-size:16px; line-height:1.5; color:var(--text); max-width:65ch}
+.p-sec .muted{color:var(--muted); font-size:14px}
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:8px; margin-top:10px}
+.tile{border-radius:12px; padding:8px 4px 6px; display:flex; flex-direction:column; align-items:center; gap:2px; border:2px dashed var(--steel); background:transparent; color:var(--muted)}
+.tile b{font-size:30px; line-height:1; font-family:var(--letter)}
+.tile small{font-size:12px; font-variant-numeric:tabular-nums}
+.tile.learning{border:2px solid var(--glow); background:var(--steel); color:var(--text)}
+.tile.mastered{border:2px solid var(--hazard); background:var(--hazard); color:var(--ink)}
+.tile.shake{animation:wobble .4s}
+.vgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; margin-top:12px}
+.vtile{display:flex; flex-direction:column; gap:4px; background:var(--bay); border:2px solid var(--steel); border-radius:12px; padding:6px; transition:border-color .2s, box-shadow .2s}
+.vtile.on{border-color:var(--glow); box-shadow:0 0 14px var(--glow)}
+.vplay{background:var(--plate); color:var(--ink); border:none; border-radius:8px; padding:6px 4px; display:flex; flex-direction:column; align-items:center}
+.vplay b{font-size:34px; line-height:1.1; font-family:var(--letter)}
+.vplay small{font-size:12px; color:#4b5670}
+.vfix{background:transparent; border:1px solid var(--steel-hi); color:var(--muted); border-radius:8px; padding:5px 2px; font-size:12px}
+.legend{display:flex; flex-wrap:wrap; gap:16px; margin-top:10px; font-size:13px; color:var(--muted)}
+.legend i{display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:6px}
+.lg-off{border:2px dashed var(--steel)} .lg-learn{background:var(--steel); border:2px solid var(--glow)} .lg-m{background:var(--hazard)}
+.tricky{display:flex; flex-direction:column; gap:8px; margin-top:4px}
+.trick{display:flex; align-items:center; gap:14px; background:var(--bay); border-radius:12px; padding:10px 14px}
+.trick b{font-size:34px; width:44px; text-align:center; font-family:var(--letter)}
+.trick span{font-size:15px; color:var(--muted)}
+.switch{display:flex; gap:12px; align-items:flex-start; font-size:16px; line-height:1.4}
+.switch input{width:24px; height:24px; accent-color:var(--hazard); flex:none; margin-top:1px}
+.how{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px; font-size:15px; line-height:1.5; color:var(--text); max-width:65ch}
+.reset-btn{align-self:flex-start; background:transparent; color:#ff8a80; border:2px solid #ff8a80; border-radius:12px; padding:10px 18px; font-size:15px}
+.reset-btn.armed{background:#ff8a80; color:var(--ink)}
+
+#fx{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:50}
+
+@keyframes land{from{transform:translateY(-60px); opacity:0} to{transform:none; opacity:1}}
+@keyframes bob{0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)}}
+@keyframes jump{0%{transform:translateY(0) scale(1)} 30%{transform:translateY(-46px) scale(1.1) rotate(-4deg)} 55%{transform:translateY(0) scale(1.04)} 75%{transform:translateY(-12px)} 100%{transform:translateY(0) scale(1.04)}}
+@keyframes wobble{0%,100%{transform:rotate(0)} 20%{transform:rotate(-9deg)} 40%{transform:rotate(8deg)} 60%{transform:rotate(-5deg)} 80%{transform:rotate(3deg)}}
+@keyframes hintglow{0%,100%{filter:drop-shadow(0 0 4px var(--hazard))} 50%{filter:drop-shadow(0 0 26px var(--hazard)) drop-shadow(0 0 10px var(--hazard))}}
+@keyframes pop{0%{transform:scale(.4)} 70%{transform:scale(1.15)} 100%{transform:scale(1)}}
+@keyframes arrive{0%{transform:translateY(-120%) rotate(-25deg) scale(.4); opacity:0} 100%{transform:none; opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important}
+}
+@media (max-width:520px){ .p-stats{grid-template-columns:1fr} .icon-btn{width:50px;height:50px} }
+</style>
+
+<canvas id="fx"></canvas>
+
+<section id="home" class="screen">
+  <div class="home-top">
+    <button id="gear" class="gear" aria-label="Parent corner: press and hold">
+      <svg viewBox="0 0 52 52" aria-hidden="true"><circle class="ring" cx="26" cy="26" r="23"/></svg>
+      <svg viewBox="0 0 24 24" style="position:static;width:26px;height:26px" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.2 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+    </button>
+  </div>
+  <span class="gear-hint">Parents: hold</span>
+  <div class="home-main">
+    <p class="eyebrow">ROBOT ACADEMY</p>
+    <h1>Letter<br><span class="name">Bots</span></h1>
+    <button id="startBtn" class="big-btn">START MISSION</button>
+    <p class="squad-label" id="squadLabel">YOUR SQUAD</p>
+    <div id="squad" class="squad"></div>
+  </div>
+  <div class="deck"></div>
+</section>
+
+<section id="play" class="screen" hidden>
+  <div class="hud">
+    <button id="homeBtn" class="icon-btn" aria-label="Back to home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z"/></svg>
+    </button>
+    <div id="meter" class="meter" aria-label="Mission power"></div>
+    <button id="sayBtn" class="icon-btn say" aria-label="Hear it again">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+    </button>
+  </div>
+  <div class="prompt"><span>FIND THE LETTER</span><span id="ask" class="ask">?</span>
+    <button id="replayBtn" class="replay" aria-label="Hear it again">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+      <span>HEAR IT</span>
+    </button>
+  </div>
+  <div id="bots" class="bots"></div>
+  <div class="deck"></div>
+</section>
+
+<section id="win" class="screen" hidden>
+  <div class="win-main">
+    <h2>MISSION COMPLETE!</h2>
+    <div id="newBot" class="new-bot"></div>
+    <p id="winText" class="win-text"></p>
+    <p id="winSub" class="win-sub"></p>
+    <div class="row">
+      <button id="againBtn" class="big-btn">PLAY AGAIN</button>
+      <button id="winHomeBtn" class="ghost-btn">HOME</button>
+    </div>
+  </div>
+  <div class="deck"></div>
+</section>
+
+<section id="parent" class="screen parent" hidden>
+  <div class="p-wrap">
+    <div class="p-head"><h2>Parent Corner</h2><button id="parentDone" class="done-btn">DONE</button></div>
+    <div class="p-stats">
+      <div class="p-stat"><b id="stMastered">0</b><span>letters mastered of 26</span></div>
+      <div class="p-stat"><b id="stActive">0</b><span>letters in practice now</span></div>
+      <div class="p-stat"><b id="stRounds">0</b><span>missions completed</span></div>
+    </div>
+    <div class="p-sec">
+      <h3>LETTERS</h3>
+      <p class="muted">Tap a letter to add it to practice or take it out. At least 3 must stay in.</p>
+      <div id="grid" class="grid"></div>
+      <div class="legend"><span><i class="lg-off"></i>Not practicing yet</span><span><i class="lg-learn"></i>Learning</span><span><i class="lg-m"></i>Mastered</span></div>
+    </div>
+    <div class="p-sec" id="voiceSec">
+      <h3>VOICE CHECK</h3>
+      <p class="muted">Voice: <span id="voiceName">Default system voice</span>. Tap a letter to hear it exactly as the game says it. If one sounds wrong, tap <b>Try another</b> until it sounds right. Your choice is saved on this iPad.</p>
+      <div class="row" style="justify-content:flex-start; margin-top:10px"><button id="playAll" class="done-btn">PLAY A TO Z</button></div>
+      <div id="vgrid" class="vgrid"></div>
+    </div>
+    <div class="p-sec">
+      <h3>TRICKIEST RIGHT NOW</h3>
+      <div id="tricky" class="tricky"></div>
+    </div>
+    <div class="p-sec">
+      <label class="switch"><input type="checkbox" id="autoToggle"> <span>Add new letters automatically. A new letter joins after a mission once all but two practice letters are mastered.</span></label>
+    </div>
+    <div class="p-sec">
+      <h3>HOW IT WORKS</h3>
+      <ul class="how">
+        <li>The game says a letter name and your child finds it. The letter isn't shown on screen, so they practice knowing letters by name instead of matching shapes.</li>
+        <li>Only his first tap on each question counts. Letters he misses come back more often.</li>
+        <li>After two wrong taps, the right robot glows so every question still ends with a win.</li>
+        <li>A letter counts as mastered after it's answered right on the first try at least 4 more times than it's missed, with 75% accuracy or better.</li>
+        <li>Practice starts with C, A, D, E, N. Progress is saved in this browser on this iPad only.</li>
+      </ul>
+    </div>
+    <button id="resetBtn" class="reset-btn">Reset all progress</button>
+  </div>
+</section>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const ORDER = ['C','A','D','E','N','S','T','M','P','O','B','R','I','L','H','F','G','K','U','W','J','Y','V','Z','X','Q'];
+/* Spoken spellings per letter. The first is the default; "Try another" in Voice Check cycles through the rest and saves the choice. */
+const ALT = {A:['A','ey','ae','ay'],B:['bee','B'],C:['see','C','sea'],D:['dee','D'],E:['ee','E','eee'],F:['eff','F'],G:['jee','G','gee'],H:['aitch','H','eych'],I:['eye','I'],J:['jay','J'],K:['kay','K'],L:['el','L','ell'],M:['em','M'],N:['en','N'],O:['oh','O'],P:['pee','P'],Q:['cue','Q','queue'],R:['are','R','arr','ahr'],S:['ess','S'],T:['tee','T','tea'],U:['yooo','yoooo','yoo','you','U'],V:['vee','V'],W:['double you','W','double-u'],X:['ex','X'],Y:['why','Y'],Z:['zee','Z']};
+const N = L => (S && S.say && S.say[L]) || (ALT[L] ? ALT[L][0] : L);
+const BOTS = [
+  {name:'VOLT',   c:'#e8443a', d:'#9c2a23', v:0},
+  {name:'TORQUE', c:'#2f7de1', d:'#1c4f94', v:1},
+  {name:'BLAZE',  c:'#ff7a1a', d:'#b04f0b', v:2},
+  {name:'GIZMO',  c:'#22b07d', d:'#137153', v:3},
+  {name:'RIVET',  c:'#8f5bd6', d:'#5a3591', v:1},
+  {name:'TURBO',  c:'#f2c230', d:'#a7831a', v:0},
+  {name:'SPARKY', c:'#e0458f', d:'#962a5e', v:3},
+  {name:'TITAN',  c:'#7c8aa5', d:'#4b5670', v:2},
+  {name:'COMET',  c:'#19b5c2', d:'#0e7480', v:0},
+  {name:'BOULDER',c:'#a86b3c', d:'#6d4423', v:1},
+  {name:'ZIPPY',  c:'#8cc63f', d:'#567d1f', v:2},
+  {name:'NOVA',   c:'#c94fd9', d:'#7f2f8c', v:3}
+];
+const QUESTIONS = 10;
+const KEY = 'letterbots-v1';
+
+/* ---------- storage ---------- */
+function fresh(){ return {stats:{}, active:ORDER.slice(0,5), auto:true, rounds:0, squad:1}; }
+function load(){ try{ const r = localStorage.getItem(KEY); if(r){ return Object.assign(fresh(), JSON.parse(r)); } }catch(e){} return fresh(); }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+let S = load();
+/* One-time: clear any saved R/U spellings so the new defaults take effect. */
+if(!S.sayV2){ if(S.say){ delete S.say.R; delete S.say.U; } S.sayV2 = 1; save(); }
+const st = L => S.stats[L] || (S.stats[L] = {seen:0, right:0, box:0, conf:{}});
+function mastered(L){ const s = S.stats[L]; return !!s && s.box >= 4 && s.seen >= 4 && s.right / s.seen >= 0.75; }
+
+/* ---------- helpers ---------- */
+const rand = a => a[Math.floor(Math.random()*a.length)];
+function shuffle(a){ a = a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function show(id){ ['home','play','win','parent'].forEach(s => $('#'+s).hidden = s !== id); }
+
+/* ---------- robot art ---------- */
+function botSVG(b, letter){
+  const tops = [
+    `<line x1="100" y1="36" x2="100" y2="14" stroke="${b.d}" stroke-width="6" stroke-linecap="round"/><circle cx="100" cy="12" r="8" fill="#ffb627"/>`,
+    `<polygon points="74,42 62,10 90,36" fill="${b.d}"/><polygon points="126,42 138,10 110,36" fill="${b.d}"/>`,
+    `<path d="M86 38 L100 6 L114 38 Z" fill="#ffb627"/>`,
+    `<rect x="56" y="48" width="14" height="28" rx="5" fill="${b.d}"/><rect x="130" y="48" width="14" height="28" rx="5" fill="${b.d}"/>`
+  ];
+  return `<svg viewBox="0 0 200 262" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect x="62" y="196" width="28" height="48" rx="6" fill="${b.d}"/>
+    <rect x="110" y="196" width="28" height="48" rx="6" fill="${b.d}"/>
+    <rect x="52" y="238" width="44" height="18" rx="7" fill="#28324a"/>
+    <rect x="104" y="238" width="44" height="18" rx="7" fill="#28324a"/>
+    <rect x="18" y="116" width="26" height="66" rx="10" fill="${b.d}"/>
+    <rect x="156" y="116" width="26" height="66" rx="10" fill="${b.d}"/>
+    <circle cx="31" cy="190" r="14" fill="#28324a"/><circle cx="169" cy="190" r="14" fill="#28324a"/>
+    <rect x="91" y="84" width="18" height="18" fill="${b.d}"/>
+    <path d="M40 98 H160 L150 204 H50 Z" fill="${b.c}"/>
+    <rect x="6" y="88" width="50" height="38" rx="10" fill="${b.d}"/>
+    <rect x="144" y="88" width="50" height="38" rx="10" fill="${b.d}"/>
+    <rect x="14" y="96" width="34" height="6" rx="3" fill="#ffffff" opacity=".25"/>
+    <rect x="152" y="96" width="34" height="6" rx="3" fill="#ffffff" opacity=".25"/>
+    ${tops[b.v]}
+    <rect x="66" y="32" width="68" height="58" rx="15" fill="${b.c}"/>
+    <rect x="74" y="48" width="52" height="17" rx="8.5" fill="#5fe3ff"/>
+    <rect x="80" y="52" width="14" height="5" rx="2.5" fill="#ffffff" opacity=".7"/>
+    <rect x="86" y="74" width="28" height="7" rx="3.5" fill="${b.d}"/>
+    <rect x="52" y="106" width="96" height="90" rx="16" fill="#f6f3ea" stroke="${b.d}" stroke-width="5"/>
+    <text x="100" y="153" text-anchor="middle" dominant-baseline="central" font-family="Andika, 'Trebuchet MS', Arial, sans-serif" font-weight="700" font-size="82" fill="#1a1f2e">${letter}</text>
+  </svg>`;
+}
+
+/* ---------- sound ---------- */
+let ac = null;
+function audio(){
+  if(!ac){ try{ ac = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ ac = null; } }
+  if(ac && ac.state === 'suspended'){ try{ ac.resume(); }catch(e){} }
+  return ac;
+}
+function tone(f, t0, dur, type, vol){
+  const a = audio(); if(!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + t0;
+  o.type = type || 'triangle'; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || .09, t + .015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+const sfx = {
+  power(){ [523,659,784,1047,1319].forEach((f,i)=>tone(f, i*.06, .22, 'square', .05)); },
+  bonk(){ tone(220,0,.16,'sine',.16); tone(150,.09,.24,'sine',.14); },
+  fanfare(){ [[523,0],[659,.14],[784,.28],[1047,.42],[784,.62],[1047,.76]].forEach(([f,t])=>tone(f,t,.3,'square',.05)); },
+  click(){ tone(880,0,.06,'square',.03); }
+};
+
+/* ---------- voice ---------- */
+let voice = null;
+function pickVoice(){
+  try{
+    const vs = speechSynthesis.getVoices();
+    const pref = ['Samantha','Karen','Moira','Daniel','Google US English'];
+    voice = vs.find(v => pref.includes(v.name)) || vs.find(v => /^en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+  }catch(e){}
+}
+try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
+function say(text){
+  try{
+    const s = window.speechSynthesis; if(!s) return;
+    s.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if(voice) u.voice = voice;
+    u.rate = .88; u.pitch = 1.1; u.volume = 1;
+    s.speak(u);
+  }catch(e){}
+}
+
+/* ---------- particles ---------- */
+const fx = $('#fx'), ctx = fx.getContext('2d');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let parts = [], raf = 0;
+function sizeFx(){ const d = window.devicePixelRatio || 1; fx.width = innerWidth*d; fx.height = innerHeight*d; ctx.setTransform(d,0,0,d,0,0); }
+addEventListener('resize', sizeFx); sizeFx();
+function burst(x, y, colors, n){
+  n = reduce ? 10 : (n || 46);
+  for(let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, sp = 3 + Math.random()*8;
+    parts.push({x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 4, life:1, c:colors[i % colors.length], s:5 + Math.random()*8, r:Math.random()*6, vr:(Math.random()-.5)*.4});
+  }
+  if(!raf) raf = requestAnimationFrame(tick);
+}
+function tick(){
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  parts = parts.filter(p => p.life > 0);
+  for(const p of parts){
+    p.vy += .28; p.x += p.vx; p.y += p.vy; p.life -= .016; p.r += p.vr;
+    ctx.save(); ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.c;
+    ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillRect(-p.s/2, -p.s/4, p.s, p.s/2); ctx.restore();
+  }
+  raf = parts.length ? requestAnimationFrame(tick) : 0;
+  if(!raf) ctx.clearRect(0,0,innerWidth,innerHeight);
+}
+
+/* ---------- home ---------- */
+function renderHome(){
+  const sq = $('#squad'); sq.innerHTML = '';
+  const showN = Math.min(BOTS.length, S.squad + 2);
+  for(let i=0;i<showN;i++){
+    const b = BOTS[i], locked = i >= S.squad;
+    const d = document.createElement('div');
+    d.className = 'mini' + (locked ? ' locked' : '');
+    d.innerHTML = botSVG(b, locked ? '?' : b.name[0]) + `<span>${locked ? '???' : b.name}</span>`;
+    sq.appendChild(d);
+  }
+  $('#squadLabel').textContent = `YOUR SQUAD · ${S.squad} OF ${BOTS.length} BOTS`;
+}
+
+/* ---------- game ---------- */
+let G = null, timer = 0;
+function startRound(){
+  audio();
+  G = {q:0, target:null, last:null, line:'', firstTry:true, misses:0, locked:false};
+  const m = $('#meter'); m.innerHTML = '';
+  for(let i=0;i<QUESTIONS;i++){ const c = document.createElement('div'); c.className = 'cell'; m.appendChild(c); }
+  show('play');
+  nextQ(true);
+}
+function pickTarget(){
+  let pool = S.active.filter(l => l !== G.last);
+  if(!pool.length) pool = S.active.slice();
+  const w = pool.map(l => { const s = S.stats[l]; const box = s ? s.box : 0; return (6-box)*(6-box) + (!s || s.seen < 3 ? 8 : 0); });
+  let r = Math.random() * w.reduce((a,b)=>a+b, 0);
+  for(let i=0;i<pool.length;i++){ r -= w[i]; if(r <= 0) return pool[i]; }
+  return pool[pool.length-1];
+}
+function choiceCount(){
+  const m = S.active.filter(mastered).length;
+  return (S.active.length >= 4 && m >= 3) ? 4 : 3;
+}
+function distractors(t, n){
+  let pool = shuffle(S.active.filter(l => l !== t));
+  if(pool.length < n) pool = pool.concat(shuffle(ORDER.filter(l => l !== t && !S.active.includes(l))));
+  return pool.slice(0, n);
+}
+function nextQ(first){
+  clearTimeout(timer);
+  if(G.q >= QUESTIONS) return endRound();
+  const t = pickTarget();
+  G.target = t; G.firstTry = true; G.misses = 0; G.locked = false;
+  const n = choiceCount();
+  const letters = shuffle([t, ...distractors(t, n-1)]);
+  const styles = shuffle(BOTS).slice(0, letters.length);
+  const box = $('#bots'); box.innerHTML = '';
+  box.className = 'bots' + (letters.length === 3 ? ' three' : '');
+  letters.forEach((L, i) => {
+    const b = document.createElement('button');
+    b.className = 'bot'; b.dataset.l = L; b.setAttribute('aria-label', 'Letter ' + L);
+    b.innerHTML = `<div class="bob">${botSVG(styles[i], L)}</div>`;
+    b.addEventListener('click', e => onTap(b, L, e));
+    box.appendChild(b);
+  });
+  const ask = $('#ask'); ask.textContent = '?'; ask.classList.remove('reveal');
+  G.line = rand([`Find the letter ${N(t)}!`, `Where is the letter ${N(t)}?`, `Find the letter ${N(t)}!`, `Tap the letter ${N(t)}!`]);
+  if(first) say(`Let's go! ${G.line}`); else timer = setTimeout(() => say(G.line), 350);
+}
+function record(L, ok){
+  const s = st(L); s.seen++;
+  if(ok){ s.right++; s.box = Math.min(6, s.box + 1); } else { s.box = Math.max(0, s.box - 2); }
+  save();
+}
+function onTap(btn, L, e){
+  if(!G || G.locked) return;
+  audio();
+  const r = btn.getBoundingClientRect();
+  const x = e && e.clientX ? e.clientX : r.left + r.width/2, y = e && e.clientY ? e.clientY : r.top + r.height/2;
+  if(L === G.target){
+    G.locked = true;
+    record(L, G.firstTry);
+    btn.classList.remove('hint'); btn.classList.add('correct');
+    $('#bots').classList.add('done');
+    const ask = $('#ask'); ask.textContent = L; ask.classList.add('reveal');
+    burst(x, y, ['#ffb627','#5fe3ff','#ffffff','#4ade80']);
+    sfx.power();
+    say(rand([`Yes! The letter ${N(L)}!`, `Power up! That's the letter ${N(L)}!`, `Awesome! The letter ${N(L)}!`, `You got it! The letter ${N(L)}!`]));
+    const cell = $('#meter').children[G.q]; if(cell) cell.classList.add('on');
+    G.last = L; G.q++;
+    timer = setTimeout(() => nextQ(false), 1800);
+  } else {
+    if(G.firstTry){ const s = st(G.target); s.conf = s.conf || {}; s.conf[L] = (s.conf[L] || 0) + 1; }
+    G.firstTry = false; G.misses++;
+    btn.classList.remove('wrong'); void btn.offsetWidth; btn.classList.add('wrong');
+    sfx.bonk();
+    say(`That's the letter ${N(L)}. Find the letter ${N(G.target)}!`);
+    if(G.misses >= 2){ const c = [...$('#bots').children].find(b => b.dataset.l === G.target); if(c) c.classList.add('hint'); }
+  }
+}
+function endRound(){
+  S.rounds++;
+  let newBot = null, added = null;
+  if(S.squad < BOTS.length){ newBot = BOTS[S.squad]; S.squad++; }
+  if(S.auto && S.active.length < 26){
+    const notM = S.active.filter(l => !mastered(l)).length;
+    if(notM <= 2){ added = ORDER.find(l => !S.active.includes(l)); if(added) S.active.push(added); }
+  }
+  save();
+  const b = newBot || rand(BOTS.slice(0, S.squad));
+  $('#newBot').innerHTML = botSVG(b, added || b.name[0]);
+  $('#winText').textContent = newBot ? `NEW BOT UNLOCKED: ${newBot.name}!` : `${b.name} SAYS GREAT JOB!`;
+  $('#winSub').textContent = added ? `New letter joins the team: ${added}` : `Missions completed: ${S.rounds}`;
+  show('win');
+  sfx.fanfare();
+  setTimeout(() => {
+    const w = innerWidth, h = innerHeight;
+    burst(w*.25, h*.35, ['#ffb627','#5fe3ff','#e8443a','#4ade80'], 50);
+    burst(w*.75, h*.35, ['#ffb627','#5fe3ff','#c94fd9','#ffffff'], 50);
+  }, 250);
+  let line = `Mission complete! Great job!`;
+  if(newBot) line += ` You unlocked ${newBot.name.toLowerCase()}!`;
+  if(added) line += ` And a new letter joins the team: the letter ${N(added)}!`;
+  say(line);
+}
+
+/* ---------- parent corner ---------- */
+function renderParent(){
+  const all = ORDER.slice().sort();
+  $('#stMastered').textContent = all.filter(mastered).length;
+  $('#stActive').textContent = S.active.length;
+  $('#stRounds').textContent = S.rounds;
+  const g = $('#grid'); g.innerHTML = '';
+  all.forEach(L => {
+    const s = S.stats[L], on = S.active.includes(L);
+    const t = document.createElement('button');
+    t.className = 'tile' + (mastered(L) ? ' mastered' : on ? ' learning' : '');
+    t.innerHTML = `<b>${L}</b><small>${s && s.seen ? s.right + '/' + s.seen : (on ? 'new' : '–')}</small>`;
+    t.setAttribute('aria-label', `${L}: ${mastered(L) ? 'mastered' : on ? 'practicing' : 'not practicing'}`);
+    t.addEventListener('click', () => {
+      if(on){
+        if(S.active.length <= 3){ t.classList.remove('shake'); void t.offsetWidth; t.classList.add('shake'); return; }
+        S.active = S.active.filter(x => x !== L);
+      } else { S.active.push(L); }
+      save(); renderParent();
+    });
+    g.appendChild(t);
+  });
+  const tr = $('#tricky'); tr.innerHTML = '';
+  const hard = S.active.filter(L => S.stats[L] && S.stats[L].seen >= 2)
+    .map(L => ({L, s:S.stats[L], acc:S.stats[L].right / S.stats[L].seen}))
+    .filter(o => o.acc < .8)
+    .sort((a,b) => a.acc - b.acc).slice(0, 4);
+  if(!hard.length){
+    tr.innerHTML = `<p class="muted">Nothing stands out yet. After a few missions, the most-missed letters will show up here so you can practice them away from the iPad, like on signs or cereal boxes.</p>`;
+  } else hard.forEach(o => {
+    const conf = Object.entries(o.s.conf || {}).sort((a,b) => b[1]-a[1])[0];
+    const d = document.createElement('div'); d.className = 'trick';
+    d.innerHTML = `<b>${o.L}</b><span>${o.s.right} of ${o.s.seen} right on the first try${conf ? ` · mixes it up with <strong>${conf[0]}</strong> most` : ''}</span>`;
+    tr.appendChild(d);
+  });
+  $('#autoToggle').checked = !!S.auto;
+  renderVoice();
+}
+
+/* ---------- voice check ---------- */
+const speakLetter = L => say(`The letter ${N(L)}.`);
+function renderVoice(){
+  pickVoice();
+  $('#voiceName').textContent = voice ? `${voice.name} (${voice.lang})` : 'Default system voice';
+  const g = $('#vgrid'); g.innerHTML = '';
+  ORDER.slice().sort().forEach(L => {
+    const d = document.createElement('div'); d.className = 'vtile'; d.dataset.l = L;
+    d.innerHTML = `<button class="vplay" aria-label="Play ${L}"><b>${L}</b><small>"${N(L)}"</small></button><button class="vfix">Try another</button>`;
+    d.querySelector('.vplay').addEventListener('click', () => { audio(); stopAll(); speakLetter(L); });
+    d.querySelector('.vfix').addEventListener('click', () => {
+      stopAll();
+      const opts = ALT[L], i = opts.indexOf(N(L)), nx = opts[(i + 1) % opts.length];
+      S.say = S.say || {};
+      if(nx === opts[0]) delete S.say[L]; else S.say[L] = nx;
+      save();
+      d.querySelector('small').textContent = `"${nx}"`;
+      speakLetter(L);
+    });
+    g.appendChild(d);
+  });
+}
+let allTok = 0;
+function highlight(L){ document.querySelectorAll('.vtile').forEach(t => t.classList.toggle('on', t.dataset.l === L)); }
+function stopAll(){ if(allTok){ allTok = 0; try{ speechSynthesis.cancel(); }catch(e){} highlight(null); $('#playAll').textContent = 'PLAY A TO Z'; } }
+$('#playAll').addEventListener('click', () => {
+  audio();
+  if(allTok){ stopAll(); return; }
+  const s = window.speechSynthesis; if(!s) return;
+  s.cancel();
+  const tok = allTok = Date.now(), letters = ORDER.slice().sort();
+  $('#playAll').textContent = 'STOP';
+  let i = 0;
+  const step = () => {
+    if(allTok !== tok) return;
+    if(i >= letters.length){ stopAll(); return; }
+    const L = letters[i++]; highlight(L);
+    const t = document.querySelector(`.vtile[data-l="${L}"]`); if(t) t.scrollIntoView({block:'nearest', behavior: reduce ? 'auto' : 'smooth'});
+    let done = false;
+    const next = () => { if(done) return; done = true; setTimeout(step, 450); };
+    try{
+      const u = new SpeechSynthesisUtterance(`The letter ${N(L)}.`);
+      if(voice) u.voice = voice; u.rate = .88; u.pitch = 1.1;
+      u.onend = next; u.onerror = next;
+      s.speak(u);
+    }catch(e){}
+    setTimeout(next, 3000);
+  };
+  step();
+});
+$('#autoToggle').addEventListener('change', e => { S.auto = e.target.checked; save(); });
+let armT = 0;
+$('#resetBtn').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if(!b.classList.contains('armed')){
+    b.classList.add('armed'); b.textContent = 'Tap again to erase all progress';
+    clearTimeout(armT); armT = setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Reset all progress'; }, 4000);
+    return;
+  }
+  clearTimeout(armT); b.classList.remove('armed'); b.textContent = 'Progress erased';
+  S = Object.assign(fresh(), {say: S.say || {}}); save(); renderParent();
+  setTimeout(() => { b.textContent = 'Reset all progress'; }, 2000);
+});
+
+/* hold-to-open gear */
+const gear = $('#gear'); let holdT = 0;
+gear.addEventListener('pointerdown', e => {
+  e.preventDefault(); gear.classList.add('holding');
+  holdT = setTimeout(() => { gear.classList.remove('holding'); renderParent(); show('parent'); }, 1200);
+});
+['pointerup','pointerleave','pointercancel'].forEach(ev => gear.addEventListener(ev, () => { clearTimeout(holdT); gear.classList.remove('holding'); }));
+gear.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); renderParent(); show('parent'); } });
+gear.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- wiring ---------- */
+$('#startBtn').addEventListener('click', startRound);
+$('#againBtn').addEventListener('click', startRound);
+function replay(){ audio(); if(G && G.target) say(G.line || `Find the letter ${N(G.target)}!`); }
+$('#sayBtn').addEventListener('click', replay);
+$('#replayBtn').addEventListener('click', replay);
+$('#ask').addEventListener('click', replay);
+$('#homeBtn').addEventListener('click', () => { clearTimeout(timer); try{ speechSynthesis.cancel(); }catch(e){} G = null; sfx.click(); renderHome(); show('home'); });
+$('#winHomeBtn').addEventListener('click', () => { renderHome(); show('home'); });
+$('#parentDone').addEventListener('click', () => { stopAll(); renderHome(); show('home'); });
+
+renderHome();
+if(location.hash === '#voice-check'){
+  renderParent(); show('parent');
+  setTimeout(() => { const v = $('#voiceSec'); if(v) v.scrollIntoView({block:'start'}); }, 50);
+} else show('home');
+})();
+</script>
+
+</body>
+</html>
