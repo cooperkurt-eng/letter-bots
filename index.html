@@ -64,7 +64,13 @@ button:focus-visible{outline:4px solid var(--glow); outline-offset:4px}
 .home-main{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(14px,3vh,28px); text-align:center; min-height:0}
 .eyebrow{margin:0; font-family:var(--display); color:var(--glow); letter-spacing:.18em; font-size:clamp(13px,1.8vw,18px)}
 h1{margin:0; font-family:var(--display); font-weight:400; line-height:.95; font-size:clamp(44px,9.5vw,104px); text-wrap:balance; text-shadow:0 6px 0 var(--bay-deep)}
-h1 .name{color:var(--hazard)}
+h1 .name{color:var(--hazard); overflow-wrap:anywhere}
+h1.long{font-size:clamp(36px,7vw,80px)}
+.name-form{display:flex; flex-wrap:wrap; gap:10px; margin-top:10px}
+.name-form input{flex:1 1 180px; min-width:0; font:inherit; font-size:20px; padding:10px 14px; border-radius:12px; border:2px solid var(--steel-hi); background:var(--bay); color:var(--text); user-select:text; -webkit-user-select:text}
+.name-form input:focus{outline:none; border-color:var(--glow)}
+.ghost-sm{font-family:var(--display); font-size:16px; background:transparent; color:var(--text); border:2px solid var(--steel-hi); border-radius:12px; padding:10px 18px}
+#nameMsg{margin-top:8px; min-height:1.4em}
 .big-btn{
   font-family:var(--display); font-size:clamp(22px,3.6vw,38px); letter-spacing:.04em;
   background:var(--hazard); color:var(--ink); border:none; border-radius:20px;
@@ -187,7 +193,7 @@ h1 .name{color:var(--hazard)}
   <span class="gear-hint">Parents: hold</span>
   <div class="home-main">
     <p class="eyebrow">ROBOT ACADEMY</p>
-    <h1>Letter<br><span class="name">Bots</span></h1>
+    <h1 id="title">Letter<br><span class="name">Bots</span></h1>
     <button id="startBtn" class="big-btn">START MISSION</button>
     <p class="squad-label" id="squadLabel">YOUR SQUAD</p>
     <div id="squad" class="squad"></div>
@@ -232,6 +238,16 @@ h1 .name{color:var(--hazard)}
 <section id="parent" class="screen parent" hidden>
   <div class="p-wrap">
     <div class="p-head"><h2>Parent Corner</h2><button id="parentDone" class="done-btn">DONE</button></div>
+    <div class="p-sec">
+      <h3>PLAYER NAME</h3>
+      <p class="muted">Shown in the title and spoken by the voice. Saved on this device only. Leave it blank for no name.</p>
+      <form id="nameForm" class="name-form" autocomplete="off">
+        <input id="nameInput" type="text" maxlength="20" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="First name" aria-label="Player name">
+        <button type="submit" class="done-btn">SAVE</button>
+        <button type="button" id="nameHear" class="ghost-sm">HEAR IT</button>
+      </form>
+      <p id="nameMsg" class="muted"></p>
+    </div>
     <div class="p-stats">
       <div class="p-stat"><b id="stMastered">0</b><span>letters mastered of 26</span></div>
       <div class="p-stat"><b id="stActive">0</b><span>letters in practice now</span></div>
@@ -259,11 +275,11 @@ h1 .name{color:var(--hazard)}
     <div class="p-sec">
       <h3>HOW IT WORKS</h3>
       <ul class="how">
-        <li>The game says a letter name and your child finds it. The letter isn't shown on screen, so they practice knowing letters by name instead of matching shapes.</li>
-        <li>Only his first tap on each question counts. Letters he misses come back more often.</li>
+        <li>The game says a letter name and the player finds it. The letter isn't shown on screen, so they practice knowing letters by name instead of matching shapes.</li>
+        <li>Only the first tap on each question counts. Missed letters come back more often.</li>
         <li>After two wrong taps, the right robot glows so every question still ends with a win.</li>
-        <li>A letter counts as mastered after it's answered right on the first try at least 4 more times than it's missed, with 75% accuracy or better.</li>
-        <li>Practice starts with C, A, D, E, N. Progress is saved in this browser on this iPad only.</li>
+        <li>A letter counts as mastered once first-try right answers outnumber misses by at least 4, with 75% accuracy or better.</li>
+        <li>Practice starts with the letters in the player's name, then common letters like S, A, T, M, P. The name and progress are saved on this device only.</li>
       </ul>
     </div>
     <button id="resetBtn" class="reset-btn">Reset all progress</button>
@@ -273,7 +289,13 @@ h1 .name{color:var(--hazard)}
 <script>
 (function(){
 const $ = s => document.querySelector(s);
-const ORDER = ['C','A','D','E','N','S','T','M','P','O','B','R','I','L','H','F','G','K','U','W','J','Y','V','Z','X','Q'];
+const ORDER = ['S','A','T','M','P','I','N','O','C','D','E','B','R','L','H','F','G','K','U','W','J','Y','V','Z','X','Q'];
+/* Letters in the player's name come first, then the default order. */
+function order(){
+  const nl = [...new Set(((S && S.name) || '').toUpperCase().replace(/[^A-Z]/g, ''))];
+  return [...nl, ...ORDER.filter(l => !nl.includes(l))];
+}
+const nm = pre => (S && S.name) ? pre + S.name : '';
 /* Spoken spellings per letter. The first is the default; "Try another" in Voice Check cycles through the rest and saves the choice. */
 const ALT = {A:['A','ey','ae','ay'],B:['bee','B'],C:['see','C','sea'],D:['dee','D'],E:['E','eee','ea'],F:['eff','F'],G:['G','gee','jee'],H:['aitch','H','eych'],I:['eye','I'],J:['jay','J'],K:['kay','K'],L:['el','L','ell'],M:['em','M'],N:['en','N'],O:['oh','O'],P:['pee','P'],Q:['cue','Q','queue'],R:['are','R','arr','ahr'],S:['ess','S'],T:['tee','T','tea'],U:['U','you','yoo'],V:['vee','V'],W:['double you','W','double-u'],X:['ex','X'],Y:['why','Y'],Z:['Z','zeee','zzee']};
 const raw = L => (S && S.say && S.say[L]) || (ALT[L] ? ALT[L][0] : L);
@@ -295,10 +317,11 @@ const BOTS = [
 ];
 const QUESTIONS = 10;
 const KEY = 'letterbots-v1';
+const LEGACY = '';
 
 /* ---------- storage ---------- */
 function fresh(){ return {stats:{}, active:ORDER.slice(0,5), auto:true, rounds:0, squad:1}; }
-function load(){ try{ const r = localStorage.getItem(KEY); if(r){ return Object.assign(fresh(), JSON.parse(r)); } }catch(e){} return fresh(); }
+function load(){ try{ const r = localStorage.getItem(KEY) || (LEGACY && localStorage.getItem(LEGACY)); if(r){ return Object.assign(fresh(), JSON.parse(r)); } }catch(e){} return fresh(); }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 let S = load();
 /* One-time: clear any saved R/U spellings so the new defaults take effect. */
@@ -424,7 +447,14 @@ function tick(){
 }
 
 /* ---------- home ---------- */
+function esc(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function renderTitle(){
+  const h = $('#title');
+  h.innerHTML = S.name ? `<span class="name">${esc(S.name)}'s</span><br>Letter Bots` : `Letter<br><span class="name">Bots</span>`;
+  h.classList.toggle('long', !!S.name && S.name.length > 7);
+}
 function renderHome(){
+  renderTitle();
   const sq = $('#squad'); sq.innerHTML = '';
   const showN = Math.min(BOTS.length, S.squad + 2);
   for(let i=0;i<showN;i++){
@@ -482,8 +512,8 @@ function nextQ(first){
     box.appendChild(b);
   });
   const ask = $('#ask'); ask.textContent = '?'; ask.classList.remove('reveal');
-  G.line = rand([`Find the letter ${N(t)}!`, `Where is the letter ${N(t)}?`, `Find the letter ${N(t)}!`, `Tap the letter ${N(t)}!`]);
-  if(first) say(`Let's go! ${G.line}`); else timer = setTimeout(() => say(G.line), 350);
+  G.line = rand([S.name ? `${S.name}, find the letter ${N(t)}!` : `Find the letter ${N(t)}!`, `Where is the letter ${N(t)}?`, `Find the letter ${N(t)}!`, `Tap the letter ${N(t)}!`]);
+  if(first) say(`Let's go${nm(', ')}! ${G.line}`); else timer = setTimeout(() => say(G.line), 350);
 }
 function record(L, ok){
   const s = st(L); s.seen++;
@@ -503,7 +533,7 @@ function onTap(btn, L, e){
     const ask = $('#ask'); ask.textContent = L; ask.classList.add('reveal');
     burst(x, y, ['#ffb627','#5fe3ff','#ffffff','#4ade80']);
     sfx.power();
-    say(rand([`Yes! The letter ${N(L)}!`, `Power up! That's the letter ${N(L)}!`, `Awesome! The letter ${N(L)}!`, `You got it! The letter ${N(L)}!`]));
+    say(rand([`Yes! The letter ${N(L)}!`, `Power up! That's the letter ${N(L)}!`, `Awesome${nm(', ')}! The letter ${N(L)}!`, `You got it! The letter ${N(L)}!`]));
     const cell = $('#meter').children[G.q]; if(cell) cell.classList.add('on');
     G.last = L; G.q++;
     timer = setTimeout(() => nextQ(false), 1800);
@@ -522,7 +552,7 @@ function endRound(){
   if(S.squad < BOTS.length){ newBot = BOTS[S.squad]; S.squad++; }
   if(S.auto && S.active.length < 26){
     const notM = S.active.filter(l => !mastered(l)).length;
-    if(notM <= 2){ added = ORDER.find(l => !S.active.includes(l)); if(added) S.active.push(added); }
+    if(notM <= 2){ added = order().find(l => !S.active.includes(l)); if(added) S.active.push(added); }
   }
   save();
   const b = newBot || rand(BOTS.slice(0, S.squad));
@@ -536,7 +566,7 @@ function endRound(){
     burst(w*.25, h*.35, ['#ffb627','#5fe3ff','#e8443a','#4ade80'], 50);
     burst(w*.75, h*.35, ['#ffb627','#5fe3ff','#c94fd9','#ffffff'], 50);
   }, 250);
-  let line = `Mission complete! Great job!`;
+  let line = `Mission complete! Great job${nm(', ')}!`;
   if(newBot) line += ` You unlocked ${newBot.name.toLowerCase()}!`;
   if(added) line += ` And a new letter joins the team: the letter ${N(added)}!`;
   say(line);
@@ -578,8 +608,33 @@ function renderParent(){
     tr.appendChild(d);
   });
   $('#autoToggle').checked = !!S.auto;
+  if(document.activeElement !== $('#nameInput')) $('#nameInput').value = S.name || '';
   renderVoice();
 }
+
+/* ---------- player name ---------- */
+const cleanName = v => (v || '').replace(/[^\p{L}\p{M}' -]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 20);
+const isFresh = () => S.rounds === 0 && !Object.values(S.stats).some(s => s.seen > 0);
+$('#nameForm').addEventListener('submit', e => {
+  e.preventDefault();
+  audio();
+  S.name = cleanName($('#nameInput').value);
+  $('#nameInput').value = S.name;
+  let msg = S.name ? `Saved. The game will call the player ${S.name}.` : 'Name cleared.';
+  if(isFresh()){
+    S.active = order().slice(0, 5);
+    if(S.name) msg += ` Practice will start with ${S.active.join(', ')}.`;
+  }
+  save(); renderParent(); renderTitle();
+  $('#nameMsg').textContent = msg;
+  $('#nameInput').blur();
+  if(S.name) say(`Hi, ${S.name}! Let's find some letters!`);
+});
+$('#nameHear').addEventListener('click', () => {
+  audio();
+  const n = cleanName($('#nameInput').value);
+  say(n ? `${n}, find the letter ${N('A')}!` : `Find the letter ${N('A')}!`);
+});
 
 /* ---------- voice check ---------- */
 const speakLetter = L => say(`The letter ${N(L)}.`);
@@ -636,7 +691,7 @@ $('#resetBtn').addEventListener('click', e => {
     return;
   }
   clearTimeout(armT); b.classList.remove('armed'); b.textContent = 'Progress erased';
-  S = Object.assign(fresh(), {say: S.say || {}}); save(); renderParent();
+  S = Object.assign(fresh(), {say: S.say || {}, name: S.name || '', sayV2: 1, sayV3: 1}); S.active = order().slice(0, 5); save(); renderParent();
   setTimeout(() => { b.textContent = 'Reset all progress'; }, 2000);
 });
 
