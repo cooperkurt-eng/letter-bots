@@ -68,6 +68,7 @@ h1 .name{color:var(--hazard); overflow-wrap:anywhere}
 h1.long{font-size:clamp(36px,7vw,80px)}
 .name-form{display:flex; flex-wrap:wrap; gap:10px; margin-top:10px}
 .name-form input{flex:1 1 180px; min-width:0; font:inherit; font-size:20px; padding:10px 14px; border-radius:12px; border:2px solid var(--steel-hi); background:var(--bay); color:var(--text); user-select:text; -webkit-user-select:text}
+.name-form select{flex:1 1 220px; min-width:0; max-width:100%; font:inherit; font-size:17px; padding:10px 12px; border-radius:12px; border:2px solid var(--steel-hi); background:var(--bay); color:var(--text)}
 .name-form input:focus{outline:none; border-color:var(--glow)}
 .ghost-sm{font-family:var(--display); font-size:16px; background:transparent; color:var(--text); border:2px solid var(--steel-hi); border-radius:12px; padding:10px 18px}
 #nameMsg{margin-top:8px; min-height:1.4em}
@@ -262,6 +263,8 @@ h1.long{font-size:clamp(36px,7vw,80px)}
     <div class="p-sec" id="voiceSec">
       <h3>VOICE CHECK</h3>
       <p class="muted">Voice: <span id="voiceName">Default system voice</span>. Tap a letter to hear it exactly as the game says it. If one sounds wrong, tap <b>Try another</b> until it sounds right. Your choice is saved on this iPad.</p>
+      <div class="name-form"><select id="voiceSel" aria-label="Voice"></select></div>
+      <p class="muted" style="margin-top:8px">On iPad, more natural voices can be downloaded in Settings › Accessibility › Spoken Content › Voices › English (look for Premium or Enhanced). Then reopen the game and pick one here.</p>
       <div class="row" style="justify-content:flex-start; margin-top:10px"><button id="playAll" class="done-btn">PLAY A TO Z</button></div>
       <div id="vgrid" class="vgrid"></div>
     </div>
@@ -283,7 +286,7 @@ h1.long{font-size:clamp(36px,7vw,80px)}
       </ul>
     </div>
     <button id="resetBtn" class="reset-btn">Reset all progress</button>
-    <p class="muted" style="margin:0; font-size:13px">Version 9 · Nov 14, 2026</p>
+    <p class="muted" style="margin:0; font-size:13px">Version 10 · Nov 14, 2026</p>
   </div>
 </section>
 
@@ -391,15 +394,42 @@ const sfx = {
 };
 
 /* ---------- voice ---------- */
+/* Prefer natural-sounding voices: Edge "Natural", Apple "Premium"/"Enhanced", Google online voices.
+   Apple's novelty voices (Zarvox, Bubbles, Fred...) are excluded. A parent can override in Voice Check. */
 let voice = null;
-function pickVoice(){
-  try{
-    const vs = speechSynthesis.getVoices();
-    const pref = ['Samantha','Karen','Moira','Daniel','Google US English'];
-    voice = vs.find(v => pref.includes(v.name)) || vs.find(v => /^en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
-  }catch(e){}
+const NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|ralph|grandma|grandpa|eddy|flo\b|reed|rocko|sandy|shelley/i;
+function scoreVoice(v){
+  if(!/^en/i.test(v.lang) || NOVELTY.test(v.name)) return -1;
+  const n = v.name + ' ' + (v.voiceURI || '');
+  let s = 0;
+  if(/natural/i.test(n)) s += 100;
+  if(/premium/i.test(n)) s += 90;
+  if(/enhanced|neural/i.test(n)) s += 80;
+  if(/google/i.test(n)) s += 50;
+  s += /en[-_]US/i.test(v.lang) ? 20 : 5;
+  if(/aria|jenny|ava|zoe|samantha|allison|emma|michelle/i.test(v.name)) s += 10;
+  return s;
 }
-try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
+function englishVoices(){
+  try{ return speechSynthesis.getVoices().filter(v => scoreVoice(v) >= 0).sort((a, b) => scoreVoice(b) - scoreVoice(a)); }
+  catch(e){ return []; }
+}
+function pickVoice(){
+  const vs = englishVoices();
+  voice = (S && S.voiceName && vs.find(v => v.name === S.voiceName)) || vs[0] || null;
+}
+function renderVoiceSel(){
+  const sel = $('#voiceSel'); if(!sel) return;
+  const vs = englishVoices();
+  sel.innerHTML = '';
+  const auto = document.createElement('option');
+  auto.value = ''; auto.textContent = `Best available${vs[0] ? ' (' + vs[0].name + ')' : ''}`;
+  sel.appendChild(auto);
+  vs.forEach(v => { const o = document.createElement('option'); o.value = v.name; o.textContent = `${v.name} · ${v.lang}`; sel.appendChild(o); });
+  sel.value = (S.voiceName && vs.some(v => v.name === S.voiceName)) ? S.voiceName : '';
+  $('#voiceName').textContent = voice ? `${voice.name} (${voice.lang})` : 'Default system voice';
+}
+try{ pickVoice(); speechSynthesis.onvoiceschanged = () => { pickVoice(); if(!$('#parent').hidden) renderVoiceSel(); }; }catch(e){}
 /* Letter names («g») are spoken as their own utterance for a crisp sound. Single letters are
    lowercased so iOS doesn't say "capital". Each new line stops the previous one cleanly;
    onend fires once, after the last piece, with a timeout fallback. */
@@ -649,6 +679,12 @@ $('#nameForm').addEventListener('submit', e => {
   $('#nameInput').blur();
   if(S.name) say(`Hi, ${S.name}! Let's find some letters!`);
 });
+$('#voiceSel').addEventListener('change', e => {
+  audio(); stopAll();
+  S.voiceName = e.target.value || '';
+  save(); pickVoice(); renderVoiceSel();
+  say(`Hi${nm(' ')}! Find the letter ${N('G')}!`);
+});
 $('#nameHear').addEventListener('click', () => {
   audio();
   const n = cleanName($('#nameInput').value);
@@ -659,7 +695,7 @@ $('#nameHear').addEventListener('click', () => {
 const speakLetter = L => say(`The letter ${N(L)}.`);
 function renderVoice(){
   pickVoice();
-  $('#voiceName').textContent = voice ? `${voice.name} (${voice.lang})` : 'Default system voice';
+  renderVoiceSel();
   const g = $('#vgrid'); g.innerHTML = '';
   ORDER.slice().sort().forEach(L => {
     const d = document.createElement('div'); d.className = 'vtile'; d.dataset.l = L;
