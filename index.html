@@ -283,7 +283,7 @@ h1.long{font-size:clamp(36px,7vw,80px)}
       </ul>
     </div>
     <button id="resetBtn" class="reset-btn">Reset all progress</button>
-    <p class="muted" style="margin:0; font-size:13px">Version 8 · Nov 14, 2026</p>
+    <p class="muted" style="margin:0; font-size:13px">Version 9 · Nov 14, 2026</p>
   </div>
 </section>
 
@@ -400,8 +400,9 @@ function pickVoice(){
   }catch(e){}
 }
 try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
-/* One utterance per line (splitting made iOS say "capital G" and stutter).
-   Each new line stops the previous one cleanly; onend fires once, with a timeout fallback. */
+/* Letter names («g») are spoken as their own utterance for a crisp sound. Single letters are
+   lowercased so iOS doesn't say "capital". Each new line stops the previous one cleanly;
+   onend fires once, after the last piece, with a timeout fallback. */
 let sayTok = 0;
 function stopSpeech(){ sayTok++; try{ speechSynthesis.cancel(); }catch(e){} }
 function say(text, onend){
@@ -409,19 +410,30 @@ function say(text, onend){
   let fired = false;
   const done = () => { if(fired || tok !== sayTok) return; fired = true; if(onend) onend(); };
   const clean = text.replace(/[«»]/g, '');
+  const parts = text.split(/«(.*?)»/)
+    .map((p, i) => {
+      const letter = i % 2 === 1;
+      p = p.trim();
+      if(letter && p.length === 1) p = p.toLowerCase();
+      return {p, letter};
+    })
+    .filter(x => x.p && /[\p{L}]/u.test(x.p));
   try{
     const s = window.speechSynthesis;
     if(!s){ if(onend) setTimeout(done, 400); return; }
     const go = () => {
       if(tok !== sayTok) return;
-      const u = new SpeechSynthesisUtterance(clean);
-      if(voice) u.voice = voice;
-      u.rate = .8; u.pitch = 1.1; u.volume = 1;
-      u.onend = done; u.onerror = done;
-      s.speak(u);
+      parts.forEach((x, i) => {
+        const u = new SpeechSynthesisUtterance(x.p);
+        if(voice) u.voice = voice;
+        u.rate = x.letter ? .75 : .85; u.pitch = 1.1; u.volume = 1;
+        if(i === parts.length - 1){ u.onend = done; u.onerror = done; }
+        s.speak(u);
+      });
+      if(!parts.length) done();
     };
     if(s.speaking || s.pending){ s.cancel(); setTimeout(go, 150); } else go();
-    if(onend) setTimeout(done, 2000 + clean.length * 110);
+    if(onend) setTimeout(done, 2500 + clean.length * 110 + parts.length * 400);
   }catch(e){ if(onend) setTimeout(done, 400); }
 }
 
